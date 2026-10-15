@@ -158,3 +158,20 @@ def fail_job(owner_id, job_id, message):
         conn.execute("UPDATE jobs SET status='failed',message=%s,updated_at=NOW() WHERE id=%s AND owner_id=%s AND status='running'",
                      (message[:250],job_id,owner_id))
         conn.execute('DELETE FROM job_payloads WHERE job_id=%s', (job_id,))
+
+
+def claim_job(job_id):
+    # Atomically claim one job for the free-tier API's background task.
+    try:
+        parsed_id = uuid.UUID(str(job_id))
+    except (ValueError, TypeError, AttributeError):
+        return None
+    with connect() as conn:
+        row = conn.execute("SELECT id, owner_id, kind, query, location, requested FROM jobs WHERE id=%s AND status='queued' FOR UPDATE SKIP LOCKED", (parsed_id,)).fetchone()
+        if row is None:
+            return None
+        conn.execute("UPDATE jobs SET status='running', updated_at=NOW() WHERE id=%s", (parsed_id,))
+        if row['kind'] == 'csv-import':
+            payload = conn.execute('SELECT csv_bytes FROM job_payloads WHERE job_id=%s', (parsed_id,)).fetchone()
+            row['csv_bytes'] = bytes(payload['csv_bytes']) if payload else None
+        return _serialize(row)

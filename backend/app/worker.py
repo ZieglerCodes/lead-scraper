@@ -17,8 +17,8 @@ def stop(*_):
     stopping = True
 
 
-def process_one():
-    job = postgres.claim_next_job()
+def process_one(job_id=None):
+    job = postgres.claim_job(job_id) if job_id else postgres.claim_next_job()
     if job is None:
         return False
     owner_id, job_id = job['owner_id'], job['id']

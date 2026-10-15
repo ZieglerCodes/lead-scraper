@@ -13,10 +13,21 @@ from app import storage as db
 from app.auth import current_user, supabase_url
 from app.jobs import run_demo_job, run_import_job
 from app.schemas import SearchRequest
+from app.worker import process_one
 
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 UPLOAD_DIR = Path(__file__).resolve().parents[1] / "data" / "uploads"
 User = Annotated[str, Depends(current_user)]
+
+
+def inprocess_jobs() -> bool:
+    """Free-tier mode: short jobs run after the HTTP response.
+
+    Render can stop an idle/restarted instance: this is best effort, not a
+    replacement for the dedicated production queue worker.
+    """
+    return db.is_postgres() and os.environ.get("LEAD_SCRAPER_JOB_MODE", "worker") == "inprocess"
+
 
 
 @asynccontextmanager
@@ -28,6 +39,8 @@ async def lifespan(_: FastAPI):
         allowed = os.environ.get("FRONTEND_ORIGINS", "")
         if not allowed or "*" in allowed:
             raise RuntimeError("Production requires explicit FRONTEND_ORIGINS")
+    if os.environ.get("LEAD_SCRAPER_JOB_MODE", "worker") not in ("worker", "inprocess"):
+        raise RuntimeError("LEAD_SCRAPER_JOB_MODE must be worker or inprocess")
     db.init_db()
     yield
 
@@ -60,7 +73,7 @@ def health():
         raise HTTPException(status_code=503, detail="Database unavailable")
     return {"status": "ok", "phase": 4, "authentication": "Supabase JWT required",
             "storage": "PostgreSQL" if db.is_postgres() else "Local SQLite",
-            "processing": "durable worker" if db.is_postgres() else "local background tasks"}
+            "processing": "in-process best effort" if inprocess_jobs() else ("durable worker" if db.is_postgres() else "local background tasks")}
 
 
 @app.get("/api/me")
@@ -76,6 +89,8 @@ def search(request: SearchRequest, background_tasks: BackgroundTasks, owner_id: 
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     if not db.is_postgres():
         background_tasks.add_task(run_demo_job, owner_id, job["id"], request.query, request.location, request.max_results)
+    elif inprocess_jobs():
+        background_tasks.add_task(process_one, job["id"])
     return job
 
 
@@ -93,7 +108,10 @@ async def import_leads(background_tasks: BackgroundTasks, owner_id: User, file: 
     # It is processed and deleted by the worker; ephemeral Render disks are not used.
     if db.is_postgres():
         try:
-            return db.create_job(owner_id, "csv-import", None, None, 0, csv_bytes=content)
+            job = db.create_job(owner_id, "csv-import", None, None, 0, csv_bytes=content)
+            if inprocess_jobs():
+                background_tasks.add_task(process_one, job["id"])
+            return job
         except ValueError as exc:
             raise HTTPException(status_code=429, detail=str(exc)) from exc
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
