@@ -1,0 +1,31 @@
+# Python and local development data
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+backend/data/*
+!backend/data/.gitkeep
+# Frontend builds
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+# Environment/credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# Old original source and archives must not go to GitHub
+legacy/
+google_scraper.py
+# Local caches and IDEs
+.DS_Store
+.vscode/
+.idea/
+
+# Archive-only reference scripts (never deploy to GitHub)
+legacy_reference/
