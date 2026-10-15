@@ -63,7 +63,7 @@ export default function AuthGate({ children }: { children: (session: Session) =>
     } finally { setWorking(false) }
   }
 
-  if (!supabase) return <div className="auth-screen"><section className="auth-card"><Radar size={36}/><h1>Connect Supabase</h1><p>Copy <code>frontend/.env.example</code> to <code>frontend/.env.local</code> and set your project URL and publishable key, then restart Vite.</p><p>See <code>README_PHASE4.md</code> for setup. There is no insecure guest mode.</p></section></div>
+  if (!supabase) return <div className="auth-screen"><section className="auth-card"><Radar size={36}/><h1>Connect Supabase</h1><p>Supabase authentication settings are missing from this build.</p><p>For Netlify, configure <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> in the site's build environment, then redeploy. For local development, set those variables in <code>frontend/.env.local</code> and restart Vite.</p></section></div>
   if (initializing) return <div className="auth-screen"><div className="auth-wait"><LoaderCircle className="spin" size={25}/> Checking your session…</div></div>
   if (session && mode !== 'update') return <>{children(session)}</>
 

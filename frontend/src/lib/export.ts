@@ -18,7 +18,7 @@ export async function downloadJobCsv(jobId: string, kind: string): Promise<numbe
     all.push(...response.leads)
     if (response.leads.length < limit) break
     offset += response.leads.length
-    if (offset >= 5000) throw new Error('CSV export exceeded the local development limit of 5,000 rows.')
+    if (offset >= 5000) throw new Error('CSV export is limited to 5,000 rows per job.')
   }
   const lines = [COLUMNS.map(csvCell).join(','), ...all.map(lead => COLUMNS.map(key => csvCell(lead[key])).join(','))]
   const blob = new Blob(['\uFEFF', lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
