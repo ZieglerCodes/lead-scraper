@@ -1,4 +1,3 @@
-# Repository root: deployment of the frontend subdirectory.
 [build]
   base = "frontend"
   command = "npm run build"
@@ -14,7 +13,8 @@
 
 [[headers]]
   for = "/*"
+
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    X-Frame-Options = "DENY"
+    Content-Security-Policy = "frame-ancestors 'self' https://zieglercodes.netlify.app http://localhost:4321 http://127.0.0.1:4321"
